@@ -13,7 +13,7 @@ Campusly is a role-aware college management application for students, faculty, a
 
 ## Technology
 
-- Python 3.11 or newer, Flask, Flask-SQLAlchemy, Flask-Migrate, SQLAlchemy
+- Python 3.12, Flask, Flask-SQLAlchemy, Flask-Migrate, SQLAlchemy
 - SQLite locally; PostgreSQL using Psycopg in production
 - Vanilla HTML, CSS, and JavaScript
 - pytest and a Postman collection
@@ -33,7 +33,6 @@ backend/
       web.py             Local frontend delivery
   services/              Role-scoped queries and dashboard reporting
   tests/                 API and role-scope tests
-  requirements.txt
   server.py              WSGI entry point
 frontend/
   index.html
@@ -43,8 +42,9 @@ database/                Local SQLite database (created when configured)
 migrations/              Flask-Migrate revision history
 postman/                 Collection and local environment
 .env.example
+.python-version         Vercel Python runtime version
 build.py                 Copies frontend assets to Vercel's public/ directory
-pyproject.toml           Vercel Python entrypoint/build configuration
+pyproject.toml           Runtime dependencies and Vercel entrypoint/build configuration
 vercel.json
 ```
 
@@ -52,7 +52,7 @@ Vercel serves files in `public/` from its CDN, so the configured build command c
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12
 - Git (for source control)
 - Optional: PostgreSQL for production-like local testing; Vercel CLI 48.2.10+ for local Vercel emulation/deployment
 
@@ -114,8 +114,7 @@ Copy `.env.example` to `.env`. Important settings:
 | `SECRET_KEY` | Flask signing secret; provide a long, unique production value. |
 | `JWT_SECRET_KEY` | Signs authentication cookies; use a different strong production value. |
 | `DATABASE_URL` | SQLAlchemy URL. Leave empty for the local SQLite default; use a managed PostgreSQL URL in production. |
-| `CORS_ORIGINS` | Comma-separated allowed origins for credentialed API calls. The default is local development. |
-| `FRONTEND_URL` | Documented frontend origin; the default deployment serves frontend and API on the same origin. |
+| `CORS_ORIGINS` | Optional comma-separated allowed origins when the frontend is hosted on a different origin. Same-origin deployment does not require CORS. |
 | `RATELIMIT_STORAGE_URI` | Flask-Limiter storage URI. `memory://` is local-only; use a shared Redis-compatible service for multi-instance production limits. |
 | `AUTO_CREATE_TABLES` | Optional local convenience; leave `false` and use migrations for normal workflows. |
 | `COLLEGE_ADMIN_*` | Temporary bootstrap variables consumed by `flask create-admin`. |
@@ -151,7 +150,7 @@ Use the provider's pooled connection URL if available. The SQLAlchemy pool is in
 - Admins can create/manage users and academic records. Students can register themselves for courses but cannot change another student's registration.
 - Destructive operations return `409` if the record is still referenced. Deleting your own account is blocked.
 
-Do not expose an admin-registration endpoint or store production credentials in frontend code. For a frontend hosted on a different origin, configure `CORS_ORIGINS` precisely and configure cookie `SameSite`/`Secure` behavior for that cross-site topology; same-origin hosting is the supported default.
+Do not expose an admin-registration endpoint or store production credentials in frontend code. CORS is disabled unless `CORS_ORIGINS` is explicitly set. For a frontend hosted on a different origin, configure that variable precisely and configure cookie `SameSite`/`Secure` behavior for the cross-site topology; same-origin hosting is the supported default.
 
 ## REST API
 
@@ -225,16 +224,18 @@ The test suite uses an isolated in-memory SQLite database and checks registratio
 The project is configured for Vercel's current Python runtime:
 
 - `pyproject.toml` selects `backend.server:app` and runs `build.py`.
-- Runtime dependencies are declared in `pyproject.toml` for Vercel; keep them aligned with the root `requirements.txt` used for local setup and tests.
+- `.python-version` pins the Vercel runtime to Python 3.12.
+- Runtime dependencies are declared in `pyproject.toml` for Vercel and duplicated in the root `requirements.txt` for local setup; keep these lists aligned. The obsolete backend-specific requirements file is not used by this single-service deployment.
 - `build.py` copies the maintained frontend into `public/`, which Vercel serves from its CDN.
 - `backend/server.py` exports the Flask WSGI application; `/api/v1/*` and `/health` run through the Python function, and frontend requests use same-origin relative URLs.
+- Flask serves the same frontend files locally and as a fallback; the Vercel build also publishes the complete `frontend/` tree so static assets can be served by the CDN.
 - `vercel.json` provides the Vercel configuration schema. No custom API rewrite is required for the Flask framework preset.
 - `vercel.json` also applies baseline security headers to CDN-served frontend assets; the Flask app sets the equivalent headers for local/function responses.
 
 Deployment steps:
 
-1. Push the project to a Git repository and import it into Vercel (or use Vercel CLI 48.2.10+).
-2. Add production `FLASK_ENV`, `DATABASE_URL`, `SECRET_KEY`, and `JWT_SECRET_KEY` environment variables. Set `CORS_ORIGINS` to the exact public site origin; keep the frontend and API on the same Vercel domain.
+1. Push the project to a Git repository and import it into Vercel (or use Vercel CLI 48.2.10+). Set Vercel's Root Directory to the repository root, not `backend/`, so it can read `pyproject.toml`, `requirements.txt`, and the frontend source.
+2. Add production `FLASK_ENV=production`, `DATABASE_URL`, `SECRET_KEY`, and `JWT_SECRET_KEY` environment variables. Keep the frontend and API on the same Vercel domain; set `CORS_ORIGINS` only if you intentionally host the frontend on a separate origin.
 3. Configure a managed PostgreSQL instance; never configure SQLite for a production deployment.
 4. Apply migrations against production PostgreSQL before serving traffic, using a controlled deployment job or local CLI with protected credentials. Do not run migration commands automatically in every serverless startup.
 5. Deploy and verify `/health`, login, and an authenticated workflow. Do not consider the database workflow validated until the deployed environment has been tested.

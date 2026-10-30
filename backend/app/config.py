@@ -8,13 +8,16 @@ load_dotenv()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATABASE = PROJECT_ROOT / "database" / "college.db"
-DEFAULT_DATABASE.parent.mkdir(parents=True, exist_ok=True)
+if os.getenv("VERCEL") != "1" and not os.getenv("VERCEL_ENV"):
+    DEFAULT_DATABASE.parent.mkdir(parents=True, exist_ok=True)
 
 
 class Config:
     ENVIRONMENT = (
-        os.getenv("VERCEL_ENV") if os.getenv("VERCEL") == "1" else os.getenv("FLASK_ENV")
-    ) or os.getenv("VERCEL_ENV") or "development"
+        (os.getenv("VERCEL_ENV") or "production")
+        if os.getenv("VERCEL") == "1"
+        else os.getenv("FLASK_ENV") or os.getenv("VERCEL_ENV") or "development"
+    )
     ENVIRONMENT = ENVIRONMENT.lower()
     SECRET_KEY = os.getenv("SECRET_KEY") or "local-development-secret-change-me"
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY") or "local-jwt-secret-change-me"
@@ -36,10 +39,9 @@ class Config:
     )
     RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
     RATELIMIT_DEFAULT = "200 per day;50 per hour"
-    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:5000")
     CORS_ORIGINS = [
         origin.strip()
-        for origin in os.getenv("CORS_ORIGINS", FRONTEND_URL).split(",")
+        for origin in os.getenv("CORS_ORIGINS", "").split(",")
         if origin.strip()
     ]
     SESSION_COOKIE_HTTPONLY = True

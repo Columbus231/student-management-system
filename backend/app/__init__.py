@@ -32,7 +32,10 @@ def create_app(test_config=None):
     is_postgresql = app.config["SQLALCHEMY_DATABASE_URI"].startswith(
         ("postgresql://", "postgresql+psycopg://")
     )
-    if app.config.get("ENVIRONMENT") in {"production", "preview"} and (
+    is_deployment = app.config.get("ENVIRONMENT") in {"production", "preview"} or (
+        os.getenv("VERCEL") == "1"
+    )
+    if is_deployment and (
         not os.getenv("SECRET_KEY")
         or not os.getenv("JWT_SECRET_KEY")
         or not os.getenv("DATABASE_URL")
@@ -47,12 +50,13 @@ def create_app(test_config=None):
         )
 
     db.init_app(app)
-    CORS(
-        app,
-        origins=app.config["CORS_ORIGINS"],
-        supports_credentials=True,
-        allow_headers=["Content-Type", "X-CSRF-TOKEN"],
-    )
+    if app.config["CORS_ORIGINS"]:
+        CORS(
+            app,
+            origins=app.config["CORS_ORIGINS"],
+            supports_credentials=True,
+            allow_headers=["Content-Type", "X-CSRF-TOKEN"],
+        )
     migrate.init_app(app, db)
     jwt.init_app(app)
     limiter.init_app(app)

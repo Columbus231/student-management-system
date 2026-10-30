@@ -8,6 +8,27 @@ def test_health_and_authentication_required(client):
     assert response.json["error"] == "Authentication required."
 
 
+def test_frontend_assets_and_unknown_routes(client):
+    page = client.get("/")
+    assert page.status_code == 200
+    assert b"Campusly | College Management" in page.data
+    assert page.headers["X-Content-Type-Options"] == "nosniff"
+    assert page.headers["X-Frame-Options"] == "DENY"
+    assert "frame-ancestors 'none'" in page.headers["Content-Security-Policy"]
+
+    stylesheet = client.get("/css/app.css")
+    assert stylesheet.status_code == 200
+    assert stylesheet.mimetype == "text/css"
+
+    script = client.get("/js/app.js")
+    assert script.status_code == 200
+    assert b'const API = "/api/v1"' in script.data
+
+    missing = client.get("/not-a-frontend-asset")
+    assert missing.status_code == 404
+    assert missing.json["error"] == "Resource not found."
+
+
 def test_production_configuration_rejects_sqlite():
     import pytest
 
@@ -22,6 +43,58 @@ def test_production_configuration_rejects_sqlite():
                 "JWT_SECRET_KEY": "test-jwt-secret-with-at-least-thirty-two-characters",
             }
         )
+
+
+def test_vercel_environment_without_deployment_settings_fails_closed(monkeypatch):
+    import pytest
+
+    from backend.app import create_app
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.delenv("VERCEL_ENV", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="Production requires"):
+        create_app(
+            {
+                "ENVIRONMENT": "development",
+                "SQLALCHEMY_DATABASE_URI": "sqlite://",
+                "SECRET_KEY": "local-secret",
+                "JWT_SECRET_KEY": "local-jwt-secret",
+            }
+        )
+
+
+def test_vercel_production_configuration_uses_postgresql_without_auto_create(monkeypatch):
+    import pytest
+
+    from backend.app import create_app, db
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("VERCEL_ENV", "production")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://campus:secret@example.com/campus")
+    monkeypatch.setenv("SECRET_KEY", "s" * 40)
+    monkeypatch.setenv("JWT_SECRET_KEY", "j" * 40)
+    monkeypatch.setattr(
+        db,
+        "create_all",
+        lambda: pytest.fail("Production app startup must not create database tables."),
+    )
+    app = create_app(
+        {
+            "ENVIRONMENT": "production",
+            "SQLALCHEMY_DATABASE_URI": "postgresql://campus:secret@example.com/campus",
+            "SECRET_KEY": "s" * 40,
+            "JWT_SECRET_KEY": "j" * 40,
+            "AUTO_CREATE_TABLES": False,
+        }
+    )
+
+    assert app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgresql+psycopg://")
+    assert app.config["AUTO_CREATE_TABLES"] is False
+    with app.app_context():
+        assert db.engine.url.drivername == "postgresql+psycopg"
 
 
 def test_student_registration_and_login_cookie(client):
