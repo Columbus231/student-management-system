@@ -225,6 +225,7 @@ The test suite uses an isolated in-memory SQLite database and checks registratio
 The project is configured for Vercel's current Python runtime:
 
 - `pyproject.toml` selects `backend.server:app` and runs `build.py`.
+- Runtime dependencies are declared in `pyproject.toml` for Vercel; keep them aligned with the root `requirements.txt` used for local setup and tests.
 - `build.py` copies the maintained frontend into `public/`, which Vercel serves from its CDN.
 - `backend/server.py` exports the Flask WSGI application; `/api/v1/*` and `/health` run through the Python function, and frontend requests use same-origin relative URLs.
 - `vercel.json` provides the Vercel configuration schema. No custom API rewrite is required for the Flask framework preset.
