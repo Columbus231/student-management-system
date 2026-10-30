@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7fb">
+    <title>Campusly | College Management</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js" defer></script>
+  </head>
+  <body>
+    <main id="auth-screen" class="auth-screen">
+      <section class="auth-brand">
+        <a class="brand brand-light" href="/" aria-label="Campusly home">
+          <span class="brand-mark">C</span><span>campusly</span>
+        </a>
+        <div class="auth-hero">
+          <span class="eyebrow">YOUR CAMPUS, CONNECTED</span>
+          <h1>Everything college,<br><em>in one place.</em></h1>
+          <p>One calm, connected space for your classes, campus community, and next big thing.</p>
+        </div>
+        <div class="auth-footnote"><span class="pulse-dot"></span> A better way to do campus</div>
+      </section>
+      <section class="auth-panel">
+        <div class="auth-form-wrap">
+          <div class="mobile-brand brand"><span class="brand-mark">C</span><span>campusly</span></div>
+          <div class="auth-heading">
+            <span class="eyebrow" id="auth-eyebrow">WELCOME BACK</span>
+            <h2 id="auth-title">Sign in to Campusly</h2>
+            <p id="auth-subtitle">Your campus is just a moment away.</p>
+          </div>
+          <div id="auth-notice" class="notice-banner hidden" role="status"></div>
+          <form id="auth-form" class="form-stack">
+            <div id="register-fields" class="hidden">
+              <label for="auth-name">Full name</label>
+              <input id="auth-name" name="full_name" autocomplete="name" maxlength="120">
+              <label for="auth-student-number">Student number <span class="muted">(optional)</span></label>
+              <input id="auth-student-number" name="student_number" maxlength="40">
+            </div>
+            <label for="auth-email">College email</label>
+            <input id="auth-email" name="email" type="email" autocomplete="username" required>
+            <label for="auth-password">Password</label>
+            <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="10" required>
+            <button id="auth-submit" class="button button-primary button-wide" type="submit">Sign in <span>→</span></button>
+          </form>
+          <p class="auth-switch"><span id="auth-switch-copy">New to Campusly?</span> <button id="auth-switch" class="text-button" type="button">Create an account</button></p>
+          <p class="auth-security">Secure access for students, faculty, and administrators.</p>
+        </div>
+      </section>
+    </main>
+
+    <div id="app-shell" class="app-shell hidden">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand sidebar-brand" href="#" data-home><span class="brand-mark">C</span><span>campusly</span></a>
+        <div class="workspace-label">WORKSPACE</div>
+        <nav id="primary-nav" class="primary-nav" aria-label="Main navigation"></nav>
+        <div class="sidebar-bottom">
+          <div class="sidebar-help"><span class="help-icon">?</span><div><strong>Need a hand?</strong><small>Ask your campus admin</small></div></div>
+          <button id="logout-button" class="logout-button" type="button"><span>↪</span> Sign out</button>
+        </div>
+      </aside>
+      <div class="main-column">
+        <header class="topbar">
+          <button id="menu-button" class="icon-button mobile-menu" type="button" aria-label="Open menu">☰</button>
+          <div class="breadcrumb"><span>Workspace</span><span class="breadcrumb-slash">/</span><strong id="current-page">Overview</strong></div>
+          <div class="topbar-actions">
+            <span class="today-label" id="today-label"></span>
+            <button id="notification-button" class="icon-button notification-button" type="button" aria-label="Announcements">♧<span class="notification-dot"></span></button>
+            <div class="profile-chip"><span id="avatar" class="avatar">C</span><span><strong id="profile-name">Campus member</strong><small id="profile-role">Student</small></span><span class="chevron">⌄</span></div>
+          </div>
+        </header>
+        <main class="content">
+          <section id="page-heading" class="page-heading"></section>
+          <section id="dashboard-summary" class="summary-grid"></section>
+          <section id="profile-card" class="profile-card hidden"></section>
+          <section class="content-card">
+            <div class="card-toolbar">
+              <div><h2 id="list-title">Your campus</h2><p id="list-description">A clear view of what matters today.</p></div>
+              <div class="toolbar-actions">
+                <label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="Search..." aria-label="Search records"></label>
+                <select id="filter-field" class="filter-select" aria-label="Filter field"><option value="">Filter</option></select>
+                <input id="filter-value" class="filter-input hidden" aria-label="Filter value" placeholder="Value">
+                <button id="apply-filter" class="filter-button hidden" type="button">Apply</button>
+                <button id="add-record" class="button button-primary hidden" type="button"><span>＋</span> Add record</button>
+              </div>
+            </div>
+            <div id="table-container" class="table-container"></div>
+            <div id="pagination" class="pagination"></div>
+          </section>
+          <footer class="content-footer"><span>Campusly College Management</span><span>Made for your next chapter <span class="footer-star">✳</span></span></footer>
+        </main>
+      </div>
+    </div>
+
+    <div id="record-dialog" class="dialog-backdrop hidden" role="presentation">
+      <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+        <div class="dialog-heading"><div><span class="eyebrow">CAMPUS RECORD</span><h2 id="dialog-title">Add record</h2></div><button id="dialog-close" class="icon-button" type="button" aria-label="Close dialog">×</button></div>
+        <form id="record-form" class="dialog-form"><div id="record-fields" class="dialog-fields"></div><div class="dialog-actions"><button id="dialog-cancel" class="button button-secondary" type="button">Cancel</button><button id="dialog-save" class="button button-primary" type="submit">Save record</button></div></form>
+      </section>
+    </div>
+    <div id="toast" class="toast hidden" role="status"></div>
+  </body>
+</html>

@@ -1,0 +1,207 @@
+{
+  "info": {
+    "_postman_id": "f92762d1-2be2-4c12-9877-1e4fbd87b9d1",
+    "name": "Campusly College Management API",
+    "description": "Smoke tests for health, authentication, role protection, registration, and department CRUD. Auth uses HTTP-only JWT cookies and CSRF headers.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const csrf = pm.cookies.get('csrf_access_token');",
+          "if (csrf && !['GET', 'HEAD', 'OPTIONS'].includes(pm.request.method)) {",
+          "  pm.request.headers.upsert({ key: 'X-CSRF-TOKEN', value: csrf });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:5000" }
+  ],
+  "item": [
+    {
+      "name": "Health and access controls",
+      "item": [
+        {
+          "name": "Health check",
+          "request": { "method": "GET", "url": "{{base_url}}/health" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Database is connected', function () {",
+            "  pm.response.to.have.status(200);",
+            "  pm.expect(pm.response.json()).to.include({ status: 'ok', database: 'connected' });",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Protected endpoint rejects anonymous requests",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/users" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Anonymous request is rejected', function () {",
+            "  pm.response.to.have.status(401);",
+            "  pm.expect(pm.response.json()).to.have.property('error');",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Register student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"full_name\":\"Postman Student\",\"email\":\"postman.{{$guid}}@example.edu\",\"password\":\"Postman-test-password-123\"}" },
+            "url": "{{base_url}}/api/v1/auth/register"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Student registration returns a safe student profile', function () {",
+            "  pm.response.to.have.status(201);",
+            "  const data = pm.response.json().data;",
+            "  pm.expect(data.role).to.eql('student');",
+            "  pm.expect(data).not.to.have.property('password_hash');",
+            "  pm.environment.set('test_email', data.email);",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Login administrator",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"{{admin_email}}\",\"password\":\"{{admin_password}}\"}" },
+            "url": "{{base_url}}/api/v1/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Admin login sets secure cookie authentication', function () {",
+            "  pm.response.to.have.status(200);",
+            "  const user = pm.response.json().data.user;",
+            "  pm.expect(user.role).to.eql('admin');",
+            "  pm.environment.set('user_id', user.id);",
+            "  pm.expect(pm.response.headers.get('Set-Cookie')).to.include('access_token_cookie=');",
+            "  pm.expect(pm.response.json().data).not.to.have.property('access_token');",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Get current user",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/auth/me" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Current user is the administrator', function () {",
+            "  pm.response.to.have.status(200);",
+            "  pm.expect(pm.response.json().data.role).to.eql('admin');",
+            "});"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Department CRUD",
+      "item": [
+        {
+          "name": "Create department",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Postman Department\",\"code\":\"PM-{{$timestamp}}\",\"description\":\"Collection test record\"}" },
+            "url": "{{base_url}}/api/v1/departments"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Department is created', function () {",
+            "  pm.response.to.have.status(201);",
+            "  const data = pm.response.json().data;",
+            "  pm.expect(data).to.include({ name: 'Postman Department' });",
+            "  pm.environment.set('department_id', data.id);",
+            "  pm.environment.set('resource_id', data.id);",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "List and search departments",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/departments?q=Postman&page=1&per_page=10" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Search is paginated and returns department data', function () {",
+            "  pm.response.to.have.status(200);",
+            "  const body = pm.response.json();",
+            "  pm.expect(body.data).to.be.an('array');",
+            "  pm.expect(body.meta).to.include({ page: 1, per_page: 10 });",
+            "  pm.expect(body.data.some((item) => item.id === Number(pm.environment.get('department_id')))).to.eql(true);",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Get department",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/departments/{{department_id}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Department details are returned', function () {",
+            "  pm.response.to.have.status(200);",
+            "  pm.expect(pm.response.json().data.id).to.eql(Number(pm.environment.get('department_id')));",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Update department",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"description\":\"Updated by the Postman collection\"}" },
+            "url": "{{base_url}}/api/v1/departments/{{department_id}}"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Department update is persisted', function () {",
+            "  pm.response.to.have.status(200);",
+            "  pm.expect(pm.response.json().data.description).to.eql('Updated by the Postman collection');",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Reject missing department fields",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Incomplete department\"}" },
+            "url": "{{base_url}}/api/v1/departments"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Missing required fields return a validation error', function () {",
+            "  pm.response.to.have.status(400);",
+            "  pm.expect(pm.response.json()).to.have.property('error');",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Delete department",
+          "request": { "method": "DELETE", "url": "{{base_url}}/api/v1/departments/{{department_id}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Unused department is deleted', function () {",
+            "  pm.response.to.have.status(204);",
+            "});"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Logout and invalidated session",
+      "item": [
+        {
+          "name": "Logout",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{base_url}}/api/v1/auth/logout" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Logout revokes the active session', function () {",
+            "  pm.response.to.have.status(200);",
+            "});"
+          ] } }]
+        },
+        {
+          "name": "Session is no longer authenticated",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/auth/me" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Logged-out session is rejected', function () {",
+            "  pm.response.to.have.status(401);",
+            "});"
+          ] } }]
+        }
+      ]
+    }
+  ]
+}
